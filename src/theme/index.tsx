@@ -1,6 +1,29 @@
-import React, { useContext } from 'react';
-import { DefaultTheme, ThemeProvider as StyledComponentsThemeProvider, ThemeContext, css } from 'styled-components';
+import React, { useContext, HTMLProps, useCallback } from 'react';
+import styled, { DefaultTheme, ThemeProvider as StyledComponentsThemeProvider, ThemeContext, css } from 'styled-components';
 import { Colors } from './styled';
+import { useIsBetaUI } from 'src/hooks/useLocation'
+import ReactGA from 'react-ga'
+import { Text, TextProps } from 'rebass'
+
+const StyledLink = styled.a<{ isBeta: boolean }>`
+  text-decoration: none;
+  cursor: pointer;
+  color: ${({ theme, isBeta }) => (isBeta ? theme.primary : theme.primary1)};
+  font-weight: 500;
+
+  :hover {
+    text-decoration: underline;
+  }
+
+  :focus {
+    outline: none;
+    text-decoration: underline;
+  }
+
+  :active {
+    text-decoration: none;
+  }
+`
 
 const MEDIA_WIDTHS = {
   upToExtraSmall: 500,
@@ -206,3 +229,108 @@ export const useTheme = () => {
 
   return theme;
 };
+
+
+export function ExternalLink({
+  target = '_blank',
+  href,
+  rel = 'noopener noreferrer',
+  ...rest
+}: Omit<HTMLProps<HTMLAnchorElement>, 'as' | 'ref' | 'onClick'> & { href: string }) {
+  const isBeta = useIsBetaUI()
+
+  const handleClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>) => {
+      // don't prevent default, don't redirect if it's a new tab
+      if (target === '_blank' || event.ctrlKey || event.metaKey) {
+        ReactGA.outboundLink({ label: href }, () => {
+          console.debug('Fired outbound link event', href)
+        })
+      } else {
+        event.preventDefault()
+        // send a ReactGA event and then trigger a location change
+        ReactGA.outboundLink({ label: href }, () => {
+          window.location.href = href
+        })
+      }
+    },
+    [href, target]
+  )
+  return <StyledLink target={target} rel={rel} href={href} onClick={handleClick} {...rest} isBeta={isBeta} />
+}
+
+// A button that triggers some onClick result, but looks like a link.
+export const LinkStyledButton = styled.button<{ disabled?: boolean; isBeta?: boolean }>`
+  border: none;
+  text-decoration: none;
+  background: none;
+
+  cursor: ${({ disabled }) => (disabled ? 'default' : 'pointer')};
+  color: ${({ theme, disabled, isBeta }) => (disabled ? theme.text2 : isBeta ? theme.primary : theme.primary1)};
+  font-weight: 500;
+
+  :hover {
+    text-decoration: ${({ disabled }) => (disabled ? null : 'underline')};
+  }
+
+  :focus {
+    outline: none;
+    text-decoration: ${({ disabled }) => (disabled ? null : 'underline')};
+  }
+
+  :active {
+    text-decoration: none;
+  }
+`
+
+const TextWrapper = styled(Text)<{ color: keyof Colors }>`
+  color: ${({ color, theme }) => (theme as any)[color]};
+`
+
+export const TYPE = {
+  main(props: TextProps) {
+    return <TextWrapper fontWeight={500} color={'text2'} {...props} />
+  },
+  link(props: TextProps) {
+    return <TextWrapper fontWeight={500} color={'primary1'} {...props} />
+  },
+  black(props: TextProps) {
+    return <TextWrapper fontWeight={500} color={'text1'} {...props} />
+  },
+  white(props: TextProps) {
+    return <TextWrapper fontWeight={500} color={'white'} {...props} />
+  },
+  body(props: TextProps) {
+    return <TextWrapper fontWeight={400} fontSize={16} color={'text1'} {...props} />
+  },
+  largeHeader(props: TextProps) {
+    return <TextWrapper fontWeight={600} fontSize={24} {...props} />
+  },
+  mediumHeader(props: TextProps) {
+    return <TextWrapper fontWeight={500} fontSize={20} {...props} />
+  },
+  subHeader(props: TextProps) {
+    return <TextWrapper fontWeight={400} fontSize={14} {...props} />
+  },
+  small(props: TextProps) {
+    return <TextWrapper fontWeight={500} fontSize={11} {...props} />
+  },
+  blue(props: TextProps) {
+    return <TextWrapper fontWeight={500} color={'primary1'} {...props} />
+  },
+  yellow(props: TextProps) {
+    return <TextWrapper fontWeight={500} color={'yellow1'} {...props} />
+  },
+  darkGray(props: TextProps) {
+    return <TextWrapper fontWeight={500} color={'text3'} {...props} />
+  },
+  gray(props: TextProps) {
+    return <TextWrapper fontWeight={500} color={'bg3'} {...props} />
+  },
+  italic(props: TextProps) {
+    return <TextWrapper fontWeight={500} fontSize={12} fontStyle={'italic'} color={'text2'} {...props} />
+  },
+  error({ error, ...props }: { error: boolean } & TextProps) {
+    return <TextWrapper fontWeight={500} color={error ? 'red1' : 'text2'} {...props} />
+  }
+}
